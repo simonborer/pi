@@ -7,6 +7,22 @@
   <title>π</title>
 
   <script type="module">
+    // Helper: Map a digit to a hue-rotate degree.
+    function getHue(digit) {
+      const map = {
+        "0": -15,
+        "1": -10, // You can adjust these values as desired.
+        "2": -5,
+        "3": 0,
+        "4": 5,
+        "5": 10,
+        "6": 15,
+        "7": 20,
+        "8": 25,
+        "9": 30
+      };
+      return map[digit] ?? 0;
+    }
     // Import Tone.js and math.js.
     import * as Tone from "https://cdn.skypack.dev/tone";
     import { create, all } from "https://esm.sh/mathjs";
@@ -147,14 +163,20 @@
     // Schedule flute events.
     events.forEach((ev, i) => {
       Tone.Transport.schedule((time) => {
-      // Trigger the flute note on schedule
-      fluteSynth.triggerAttackRelease(ev.freq, ev.duration, time);
-      // Use Tone.Draw.schedule to update the UI in sync
-      Tone.Draw.schedule(() => {
-        const disp = document.getElementById("piDisplay");
-        disp.textContent += (i === 1 ? "." : "") + ev.digit;
-      }, time);
-    }, ev.time);
+        // Trigger the flute note on schedule
+        fluteSynth.triggerAttackRelease(ev.freq, ev.duration, time);
+        // Use Tone.Draw.schedule to update the UI in sync
+        Tone.Draw.schedule(() => {
+          const disp = document.getElementById("piDisplay");
+          // Create a span element for this digit.
+          const span = document.createElement("span");
+          // Add a decimal point before the second digit.
+          span.textContent = (i === 1 ? "." : "") + ev.digit;
+          // Apply the hue rotation.
+          span.style.filter = `hue-rotate(${getHue(ev.digit)}deg)`;
+          disp.appendChild(span);
+        }, time);
+      }, ev.time);
     });
 
     // Schedule cello events.
