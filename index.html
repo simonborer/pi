@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>π</title>
+
+  <script type="module">
+    // Import Tone.js and math.js.
+    import * as Tone from "https://cdn.skypack.dev/tone";
+    import { create, all } from "https://esm.sh/mathjs";
+
+    const math = create(all);
+    math.config({ number: "BigNumber", precision: 70 });
+
+    // Compute pi with the Chudnovsky algorithm (3 terms gives ~50-digit precision).
+    const C = math.multiply(
+      math.bignumber(426880),
+      math.sqrt(math.bignumber(10005))
+    );
+    const bigNeg = math.bignumber("-262537412640768000");
+    const big12 = math.bignumber(12),
+      big5 = math.bignumber(5),
+      big7 = math.bignumber(7),
+      big9 = math.bignumber(9);
+
+    const computePi = (terms) => {
+      let M = math.bignumber(1),
+        L = math.bignumber(13591409),
+        X = math.bignumber(1),
+        S = math.bignumber(13591409);
+      for (let k = 1; k < terms; k++) {
+        let kB = math.bignumber(k);
+        M = math.multiply(
+          M,
+          math.divide(
+            math.multiply(
+              math.multiply(
+                math.subtract(math.multiply(big12, kB), big5),
+                math.subtract(math.multiply(big12, kB), big7)
+              ),
+              math.subtract(math.multiply(big12, kB), big9)
+            ),
+            math.pow(kB, 3)
+          )
+        );
+        L = math.add(L, math.bignumber(545140134));
+        X = math.multiply(X, bigNeg);
+        S = math.add(S, math.divide(math.multiply(M, L), X));
+      }
+      return math.divide(C, S);
+    };
+
+    const p = computePi(3);
+    const piStr = p.toFixed(50); // π as a 50-digit string.
+    const piDigits = piStr.split("").filter((ch) => ch !== ".");
+
+    // Map digits to frequencies (Hz) for the flute.
+    const noteFrequencies = {
+      0: 196.0, // G below middle C
+      1: 220.0, // A below middle C
+      2: 246.94, // B below middle C
+      3: 261.63, // Middle C
+      4: 293.66, // D above middle C
+      5: 329.63, // E above middle C
+      6: 349.23, // F above middle C
+      7: 392.0, // G above middle C
+      8: 440.0, // A above middle C
+      9: 493.88 // B above middle C
+    };
+
+    // Calculate each digit's duration:
+    // Duration = max(0.3 + (digit - 3)*0.1, 0.2)
+    const durations = piDigits.map((digit) => {
+      const computed = 0.3 + (Number(digit) - 3) * 0.1;
+      return computed < 0.2 ? 0.2 : computed;
+    });
+
+    // Build an array of scheduled events for the flute.
+    let events = [];
+    let cumulativeTime = 0;
+    for (let i = 0; i < piDigits.length; i++) {
+      let digit = piDigits[i];
+      let duration = durations[i];
+      events.push({
+        time: cumulativeTime,
+        index: i,
+        digit: digit,
+        duration: duration,
+        freq: noteFrequencies[digit]
+      });
+      cumulativeTime += duration;
+    }
+    const totalDuration = cumulativeTime; // seconds
+
+    // Build an array of cello events (every 10 digits).
+    let celloEvents = [];
+    let celloCount = 0;
+    events.forEach((ev, i) => {
+      if ((i + 1) % 10 === 0) {
+        // Alternate: first extra tone is low C (≈130.81 Hz), then G below middle C (≈196 Hz)
+        const extraFreq = celloCount % 2 === 0 ? 130.81 : 196.0;
+        celloEvents.push({ time: ev.time, freq: extraFreq });
+        celloCount++;
+      }
+    });
+
+    // Create a flute synth with a very quick attack and louder volume.
+    const fluteSynth = new Tone.Synth({
+      volume: 0, // +6 dB (louder)
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.01, decay: 0.2, sustain: 0.8, release: 0.5 }
+    });
+    const fluteReverb = new Tone.Reverb({
+      decay: 1,
+      preDelay: 0.4
+    }).toDestination();
+    fluteSynth.connect(fluteReverb);
+
+    // Create a more pleasant cello synth: triangle oscillator, gentle envelope, and low-pass filter.
+    // Set the volume lower to make it significantly quieter.
+    const celloSynth = new Tone.Synth({
+      volume: -16, // -12 dB (quieter)
+      oscillator: { type: "triangle" },
+      envelope: { attack: 0.3, decay: 0.4, sustain: 0.6, release: 1.2 }
+    });
+    // Add a vibrato LFO to the cello
+    const vibrato = new Tone.LFO({
+      frequency: 5, // vibrato speed in Hz
+      min: -10, // vibrato range: -10 cents
+      max: 10 // vibrato range: +10 cents
+    }).start();
+
+    vibrato.connect(celloSynth.detune);
+    const celloFilter = new Tone.Filter({
+      type: "lowpass",
+      frequency: 800,
+      rolloff: -12,
+      Q: 1
+    }).toDestination();
+    celloSynth.connect(celloFilter);
+
+    // Clear any previous scheduled events.
+    Tone.Transport.cancel();
+
+    // Schedule flute events.
+    events.forEach((ev, i) => {
+      Tone.Transport.schedule((time) => {
+      // Trigger the flute note on schedule
+      fluteSynth.triggerAttackRelease(ev.freq, ev.duration, time);
+      // Use Tone.Draw.schedule to update the UI in sync
+      Tone.Draw.schedule(() => {
+        const disp = document.getElementById("piDisplay");
+        disp.textContent += (i === 1 ? "." : "") + ev.digit;
+      }, time);
+    }, ev.time);
+    });
+
+    // Schedule cello events.
+    // For each cello event, trigger an attack at its scheduled time and schedule a release at the next cello event's time,
+    // or at the end of the sequence for the last one.
+    celloEvents.forEach((ev, i) => {
+      Tone.Transport.schedule((time) => {
+        celloSynth.triggerAttack(ev.freq, time);
+      }, ev.time);
+      let releaseTime =
+        i + 1 < celloEvents.length ? celloEvents[i + 1].time : totalDuration;
+      Tone.Transport.schedule((time) => {
+        celloSynth.triggerRelease(time);
+      }, releaseTime);
+    });
+
+    // Update the progress bar continuously.
+    function updateProgress() {
+      const progBar = document.getElementById("progress");
+      progBar.value = Tone.Transport.seconds / totalDuration;
+      if (Tone.Transport.seconds < totalDuration) {
+        requestAnimationFrame(updateProgress);
+      }
+    }
+
+    // Play and Stop buttons.
+    document.getElementById("play").addEventListener("click", async () => {
+      await Tone.start(); // Ensure the AudioContext is started.
+      document.getElementById("piDisplay").textContent = "";
+      Tone.Transport.position = "0:0:0";
+      Tone.Transport.start();
+      updateProgress();
+    });
+
+    document.getElementById("stop").addEventListener("click", () => {
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
+      // Immediately release any sustained cello note.
+      celloSynth.triggerRelease();
+    });
+
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nes.css/2.3.0/css/nes.min.css">
+  <style>
+    body {
+      max-width: 80vw;
+      margin: 1rem auto;
+      font-family: monospace;
+    }
+    #piDisplay { font-size: 2.5vw; margin-top: 1em; }
+  </style>
+</head>
+
+<body>
+  <button class="nes-btn is-primary" id="play">Play Tones</button>
+  <button class="nes-btn is-error" id="stop">Stop</button>
+  <br><br>
+  <progress class="nes-progress is-success" id="progress" value="0" max="1"></progress>
+  <div id="piDisplay" class="nes-container is-rounded nes-text is-primary"></div>
+</body>
+</html>
