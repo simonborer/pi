@@ -9,19 +9,7 @@
   <script type="module">
     // Helper: Map a digit to a hue-rotate degree.
     function getHue(digit) {
-      const map = {
-        "0": -15,
-        "1": -10, // You can adjust these values as desired.
-        "2": -5,
-        "3": 0,
-        "4": 5,
-        "5": 10,
-        "6": 15,
-        "7": 20,
-        "8": 25,
-        "9": 30
-      };
-      return map[digit] ?? 0;
+      return (Number(digit) - 3) * 10;
     }
     // Import Tone.js and math.js.
     import * as Tone from "https://cdn.skypack.dev/tone";
