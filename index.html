@@ -7,19 +7,17 @@
   <title>π</title>
 
   <script type="module">
-    const isMobile = 
-  (navigator.userAgentData && navigator.userAgentData.mobile) ||
-  window.matchMedia("(pointer: coarse)").matches;
-
-if (isMobile) {
-  document.getElementById('mobileDisplay').style.display = "block";
-  document.getElementById('play').classList.add('is-disabled');
-  document.getElementById('stop').classList.add('is-disabled');
-} else {
-// Imports
+    // Imports
     import * as Tone from "https://cdn.skypack.dev/tone";
     import { create, all } from "https://esm.sh/mathjs";
 
+    const isMobile = (navigator.userAgentData && navigator.userAgentData.mobile) || window.matchMedia("(pointer: coarse)").matches;
+
+    if (isMobile) {
+      document.getElementById('mobileDisplay').style.display = "block";
+      document.getElementById('play').classList.add('is-disabled');
+      document.getElementById('stop').classList.add('is-disabled');
+    } else {
     // Get 50 digits of pi as a string
     function getPiString(terms = 3, digits = 50) {
       const math = create(all);
