@@ -13,11 +13,11 @@
 
     const isMobile = (navigator.userAgentData && navigator.userAgentData.mobile) || window.matchMedia("(pointer: coarse)").matches;
 
-    if (isMobile) {
-      document.getElementById('mobileDisplay').style.display = "block";
-      document.getElementById('play').classList.add('is-disabled');
-      document.getElementById('stop').classList.add('is-disabled');
-    } else {
+    // if (isMobile) {
+    //   document.getElementById('mobileDisplay').style.display = "block";
+    //   document.getElementById('play').classList.add('is-disabled');
+    //   document.getElementById('stop').classList.add('is-disabled');
+    // } else {
     // Get 50 digits of pi as a string
     function getPiString(terms = 3, digits = 50) {
       const math = create(all);
@@ -204,16 +204,18 @@
       }
     }
 
-    // Play and Stop buttons.
     const startAudio = async (e) => {
-    // Prevent double triggering if both click and touchend fire.
       e.preventDefault();
-      Tone.start().then(() => {
-        document.getElementById("piDisplay").textContent = "";
-        Tone.Transport.position = "0:0:0";
-        Tone.Transport.start();
-        updateProgress();
-      });
+      // Play the silent audio to unlock audio on muted iOS devices.
+      const silentAudio = document.getElementById("silentAudio");
+      await silentAudio.play();
+      
+      // Now start your actual audio.
+      await Tone.start();  // or your native AudioContext resume, etc.
+      document.getElementById("piDisplay").textContent = "";
+      Tone.Transport.position = "0:0:0";
+      Tone.Transport.start();
+      updateProgress();
     };
 
     document.getElementById("play").addEventListener("click", startAudio);
@@ -223,14 +225,18 @@
     const stopAudio = () => {
       Tone.Transport.stop();
       Tone.Transport.cancel();
-      // Immediately release any sustained cello note.
       celloSynth.triggerRelease();
-    }
+      const silentAudio = document.getElementById("silentAudio");
+      if (silentAudio && !silentAudio.paused) {
+        silentAudio.pause();
+        silentAudio.currentTime = 0;
+      }
+    };
 
     document.getElementById("stop").addEventListener("click", stopAudio);
     document.getElementById("stop").addEventListener("touchend", stopAudio);
     document.getElementById("stop").addEventListener("touchstart", stopAudio);
-}
+// }
     
 
   </script>
@@ -251,6 +257,9 @@
   <div id="mobileDisplay" class="nes-container is-rounded nes-text is-error" style="display:none;">
     Sorry, couldn't get this working on mobile. I guess it's a good thing that it's hard to make websites make sound.
   </div>
+  <audio id="silentAudio">
+    <source src="/silent.mp3" type="audio/mp3" />
+  </audio>
   <br><br>
   <progress class="nes-progress is-success" id="progress" value="0" max="1"></progress>
   <div id="piDisplay" class="nes-container is-rounded nes-text is-primary"></div>
