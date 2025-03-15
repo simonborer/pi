@@ -3,22 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='central' font-size='80'%3Eπ%3C/text%3E%3C/svg%3E">
   <title>π</title>
-
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/components/prism-javascript.min.js"></script>
   <script type="module">
     // Imports
     import * as Tone from "https://cdn.skypack.dev/tone";
     import { create, all } from "https://esm.sh/mathjs";
 
-    const isMobile = (navigator.userAgentData && navigator.userAgentData.mobile) || window.matchMedia("(pointer: coarse)").matches;
-
-    // if (isMobile) {
-    //   document.getElementById('mobileDisplay').style.display = "block";
-    //   document.getElementById('play').classList.add('is-disabled');
-    //   document.getElementById('stop').classList.add('is-disabled');
-    // } else {
-    // Get 50 digits of pi as a string
     function getPiString(terms = 3, digits = 50) {
       const math = create(all);
       math.config({ number: "BigNumber", precision: 70 });
@@ -236,8 +230,6 @@
     document.getElementById("stop").addEventListener("click", stopAudio);
     document.getElementById("stop").addEventListener("touchend", stopAudio);
     document.getElementById("stop").addEventListener("touchstart", stopAudio);
-// }
-    
 
   </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nes.css/2.3.0/css/nes.min.css">
@@ -247,28 +239,252 @@
       margin: 1rem auto;
       font-family: monospace;
     }
-    #piDisplay { font-size: 2.5vw; margin-top: 1em; }
+    #piDisplay { font-size: clamp(12px, 2.4vw, 24px); margin-top: 1em; overflow-wrap: anywhere}
   </style>
 </head>
 
 <body>
   <button class="nes-btn is-primary" id="play">Play Tones</button>
   <button class="nes-btn is-error" id="stop">Stop</button>
-  <div id="mobileDisplay" class="nes-container is-rounded nes-text is-error" style="display:none;">
-    Sorry, couldn't get this working on mobile. I guess it's a good thing that it's hard to make websites make sound.
-  </div>
   <audio id="silentAudio">
     <source src="/silent.mp3" type="audio/mp3" />
   </audio>
   <br><br>
   <progress class="nes-progress is-success" id="progress" value="0" max="1"></progress>
   <div id="piDisplay" class="nes-container is-rounded nes-text is-primary"></div>
-  <div style="margin-top: 30vh" class="nes-container with-title is-centered">
+  <div style="margin-top: 20vh" class="nes-container with-title is-centered">
     <p class="title">Credits</p>
     <p class="nes-text is-primary">Inspo: Tom</p>
     <p class="nes-text is-success">Theme: <a href="https://nostalgic-css.github.io/NES.css/" target="_blank">NES.css</a></p>
     <p class="nes-text">Calculate π to >16 digits: <a href="https://mathjs.org/" target="_blank">Math.js</a></p>
     <p class="nes-text is-error">Digital instruments: <a href="https://tonejs.github.io/" target="_blank">Tone.js</a></p>
+    <p class="nes-text is-success">Mobile fix: <a href="https://stackoverflow.com/questions/66140934/why-will-tone-js-play-a-note-in-desktor-browser-but-not-on-mobile-browser" target="_blank">Michael Shingo</a></p>
+    <p class="nes-text">Code highlighting: <a href="https://prismjs.com/download.html#themes=prism-tomorrow&languages=clike+javascript" target="_blank">Prism.js</a></p>
   </div>
+  <div style="margin-top: 10vh" class="nes-container with-title is-centered is-dark">
+    <p class="title">The code</p>
+  <pre><code class="language-javascript">
+    // Imports
+    import * as Tone from "https://cdn.skypack.dev/tone";
+    import { create, all } from "https://esm.sh/mathjs";
+
+    function getPiString(terms = 3, digits = 50) {
+      const math = create(all);
+      math.config({ number: "BigNumber", precision: 70 });
+
+      // Chudnovsky algorithm constants.
+      const C = math.multiply(
+        math.bignumber(426880),
+        math.sqrt(math.bignumber(10005))
+      );
+      const bigNeg = math.bignumber("-262537412640768000");
+      const big12 = math.bignumber(12),
+        big5 = math.bignumber(5),
+        big7 = math.bignumber(7),
+        big9 = math.bignumber(9);
+
+      const computePi = (terms) => {
+        let M = math.bignumber(1),
+          L = math.bignumber(13591409),
+          X = math.bignumber(1),
+          S = math.bignumber(13591409);
+        for (let k = 1; k < terms; k++) {
+          let kB = math.bignumber(k);
+          M = math.multiply(
+            M,
+            math.divide(
+              math.multiply(
+                math.multiply(math.subtract(math.multiply(big12, kB), big5),
+                              math.subtract(math.multiply(big12, kB), big7)),
+                math.subtract(math.multiply(big12, kB), big9)
+              ),
+              math.pow(kB, 3)
+            )
+          );
+          L = math.add(L, math.bignumber(545140134));
+          X = math.multiply(X, bigNeg);
+          S = math.add(S, math.divide(math.multiply(M, L), X));
+        }
+        return math.divide(C, S);
+      };
+
+      const p = computePi(terms);
+      return p.toFixed(digits);
+    }
+
+    const piStr = getPiString(3, 50);
+
+    // Map digits to frequencies (Hz) for the flute.
+    const noteFrequencies = {
+      0: 196.0, // G below middle C
+      1: 220.0, // A below middle C
+      2: 246.94, // B below middle C
+      3: 261.63, // Middle C
+      4: 293.66, // D above middle C
+      5: 329.63, // E above middle C
+      6: 349.23, // F above middle C
+      7: 392.0, // G above middle C
+      8: 440.0, // A above middle C
+      9: 493.88 // B above middle C
+    };
+
+    const piDigits = piStr.split("").filter((ch) => ch !== ".");
+
+    // Calculate each digit's duration:
+    // Duration = max(0.3 + (digit - 3)*0.1, 0.2)
+    const durations = piDigits.map((digit) => {
+      const computed = 0.3 + (Number(digit) - 3) * 0.1;
+      return computed < 0.2 ? 0.2 : computed;
+    });
+
+    // Build an array of scheduled events for the flute.
+    let events = [];
+    let cumulativeTime = 0;
+    for (let i = 0; i < piDigits.length; i++) {
+      let digit = piDigits[i];
+      let duration = durations[i];
+      events.push({
+        time: cumulativeTime,
+        index: i,
+        digit: digit,
+        duration: duration,
+        freq: noteFrequencies[digit]
+      });
+      cumulativeTime += duration;
+    }
+    const totalDuration = cumulativeTime; // seconds
+
+    // Build an array of cello events (every 10 digits).
+    let celloEvents = [];
+    let celloCount = 0;
+    events.forEach((ev, i) => {
+      if ((i + 1) % 10 === 0) {
+        // Alternate: first extra tone is low C (≈130.81 Hz), then G below middle C (≈196 Hz)
+        const extraFreq = celloCount % 2 === 0 ? 130.81 : 196.0;
+        celloEvents.push({ time: ev.time, freq: extraFreq });
+        celloCount++;
+      }
+    });
+
+    // Create a flute synth with a very quick attack and louder volume.
+    const fluteSynth = new Tone.Synth({
+      volume: 0, // +6 dB (louder)
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.01, decay: 0.2, sustain: 0.8, release: 0.5 }
+    });
+
+    const fluteReverb = new Tone.Reverb({
+      decay: 1,
+      preDelay: 0.4
+    }).toDestination();
+    
+    fluteSynth.connect(fluteReverb);
+
+    // Create a more pleasant cello synth: triangle oscillator, gentle envelope, and low-pass filter.
+    // Set the volume lower to make it significantly quieter.
+    const celloSynth = new Tone.Synth({
+      volume: -16, // -12 dB (quieter)
+      oscillator: { type: "triangle" },
+      envelope: { attack: 0.3, decay: 0.4, sustain: 0.6, release: 1.2 }
+    });
+    // Add a vibrato LFO to the cello
+    const vibrato = new Tone.LFO({
+      frequency: 5, // vibrato speed in Hz
+      min: -10, // vibrato range: -10 cents
+      max: 10 // vibrato range: +10 cents
+    }).start();
+
+    vibrato.connect(celloSynth.detune);
+    const celloFilter = new Tone.Filter({
+      type: "lowpass",
+      frequency: 800,
+      rolloff: -12,
+      Q: 1
+    }).toDestination();
+    celloSynth.connect(celloFilter);
+
+    // Clear any previous scheduled events.
+    Tone.Transport.cancel();
+
+    // Helper: Map a digit to a hue-rotate degree.
+    function getHue(digit) {
+      return (Number(digit) - 3) * 15;
+    }
+
+    // Schedule flute events and output the numbers
+    events.forEach((ev, i) => {
+      Tone.Transport.schedule((time) => {
+        // Trigger the flute note on schedule
+        fluteSynth.triggerAttackRelease(ev.freq, ev.duration, time);
+        // Use Tone.Draw.schedule to update the UI in sync
+        Tone.Draw.schedule(() => {
+          const disp = document.getElementById("piDisplay");
+          // Create a span element for this digit.
+          const span = document.createElement("span");
+          // Add a decimal point before the second digit.
+          span.textContent = (i === 1 ? "." : "") + ev.digit;
+          // Apply the hue rotation.
+          span.style.filter = `hue-rotate(${getHue(ev.digit)}deg)`;
+          disp.appendChild(span);
+        }, time);
+      }, ev.time);
+    });
+
+    // Schedule cello events.
+    // For each cello event, trigger an attack at its scheduled time and schedule a release at the next cello event's time,
+    // or at the end of the sequence for the last one.
+    celloEvents.forEach((ev, i) => {
+      Tone.Transport.schedule((time) => {
+        celloSynth.triggerAttack(ev.freq, time);
+      }, ev.time);
+      let releaseTime =
+        i + 1 < celloEvents.length ? celloEvents[i + 1].time : totalDuration;
+      Tone.Transport.schedule((time) => {
+        celloSynth.triggerRelease(time);
+      }, releaseTime);
+    });
+
+    // Update the progress bar continuously.
+    function updateProgress() {
+      const progBar = document.getElementById("progress");
+      progBar.value = Tone.Transport.seconds / totalDuration;
+      if (Tone.Transport.seconds < totalDuration) {
+        requestAnimationFrame(updateProgress);
+      }
+    }
+
+    const startAudio = async (e) => {
+      e.preventDefault();
+      // Play the silent audio to unlock audio on muted iOS devices.
+      const silentAudio = document.getElementById("silentAudio");
+      await silentAudio.play();
+      
+      // Now start your actual audio.
+      await Tone.start();  // or your native AudioContext resume, etc.
+      document.getElementById("piDisplay").textContent = "";
+      Tone.Transport.position = "0:0:0";
+      Tone.Transport.start();
+      updateProgress();
+    };
+
+    document.getElementById("play").addEventListener("click", startAudio);
+    document.getElementById("play").addEventListener("touchend", startAudio);
+    document.getElementById("play").addEventListener("touchstart", startAudio);
+
+    const stopAudio = () => {
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
+      celloSynth.triggerRelease();
+      const silentAudio = document.getElementById("silentAudio");
+      if (silentAudio && !silentAudio.paused) {
+        silentAudio.pause();
+        silentAudio.currentTime = 0;
+      }
+    };
+
+    document.getElementById("stop").addEventListener("click", stopAudio);
+    document.getElementById("stop").addEventListener("touchend", stopAudio);
+    document.getElementById("stop").addEventListener("touchstart", stopAudio);
+</code></pre>
 </body>
 </html>
