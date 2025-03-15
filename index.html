@@ -181,20 +181,28 @@
     }
 
     // Play and Stop buttons.
-    document.getElementById("play").addEventListener("click", async () => {
-      await Tone.start(); // Ensure the AudioContext is started.
+    const startAudio = async (e) => {
+    // Prevent double triggering if both click and touchend fire.
+      e.preventDefault();
+      await Tone.start();
       document.getElementById("piDisplay").textContent = "";
       Tone.Transport.position = "0:0:0";
       Tone.Transport.start();
       updateProgress();
-    });
+    };
 
-    document.getElementById("stop").addEventListener("click", () => {
+    document.getElementById("play").addEventListener("click", startAudio);
+    document.getElementById("play").addEventListener("touchend", startAudio);
+
+    const stopAudio = () => {
       Tone.Transport.stop();
       Tone.Transport.cancel();
       // Immediately release any sustained cello note.
       celloSynth.triggerRelease();
-    });
+    }
+
+    document.getElementById("stop").addEventListener("click", stopAudio);
+    document.getElementById("stop").addEventListener("touchend", stopAudio);
 
   </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nes.css/2.3.0/css/nes.min.css">
