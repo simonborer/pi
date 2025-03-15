@@ -7,58 +7,56 @@
   <title>π</title>
 
   <script type="module">
-    // Helper: Map a digit to a hue-rotate degree.
-    function getHue(digit) {
-      return (Number(digit) - 3) * 10;
-    }
-    // Import Tone.js and math.js.
+    // Imports
     import * as Tone from "https://cdn.skypack.dev/tone";
     import { create, all } from "https://esm.sh/mathjs";
 
-    const math = create(all);
-    math.config({ number: "BigNumber", precision: 70 });
+    // Get 50 digits of pi as a string
+    function getPiString(terms = 3, digits = 50) {
+      const math = create(all);
+      math.config({ number: "BigNumber", precision: 70 });
 
-    // Compute pi with the Chudnovsky algorithm (3 terms gives ~50-digit precision).
-    const C = math.multiply(
-      math.bignumber(426880),
-      math.sqrt(math.bignumber(10005))
-    );
-    const bigNeg = math.bignumber("-262537412640768000");
-    const big12 = math.bignumber(12),
-      big5 = math.bignumber(5),
-      big7 = math.bignumber(7),
-      big9 = math.bignumber(9);
+      // Chudnovsky algorithm constants.
+      const C = math.multiply(
+        math.bignumber(426880),
+        math.sqrt(math.bignumber(10005))
+      );
+      const bigNeg = math.bignumber("-262537412640768000");
+      const big12 = math.bignumber(12),
+        big5 = math.bignumber(5),
+        big7 = math.bignumber(7),
+        big9 = math.bignumber(9);
 
-    const computePi = (terms) => {
-      let M = math.bignumber(1),
-        L = math.bignumber(13591409),
-        X = math.bignumber(1),
-        S = math.bignumber(13591409);
-      for (let k = 1; k < terms; k++) {
-        let kB = math.bignumber(k);
-        M = math.multiply(
-          M,
-          math.divide(
-            math.multiply(
+      const computePi = (terms) => {
+        let M = math.bignumber(1),
+          L = math.bignumber(13591409),
+          X = math.bignumber(1),
+          S = math.bignumber(13591409);
+        for (let k = 1; k < terms; k++) {
+          let kB = math.bignumber(k);
+          M = math.multiply(
+            M,
+            math.divide(
               math.multiply(
-                math.subtract(math.multiply(big12, kB), big5),
-                math.subtract(math.multiply(big12, kB), big7)
+                math.multiply(math.subtract(math.multiply(big12, kB), big5),
+                              math.subtract(math.multiply(big12, kB), big7)),
+                math.subtract(math.multiply(big12, kB), big9)
               ),
-              math.subtract(math.multiply(big12, kB), big9)
-            ),
-            math.pow(kB, 3)
-          )
-        );
-        L = math.add(L, math.bignumber(545140134));
-        X = math.multiply(X, bigNeg);
-        S = math.add(S, math.divide(math.multiply(M, L), X));
-      }
-      return math.divide(C, S);
-    };
+              math.pow(kB, 3)
+            )
+          );
+          L = math.add(L, math.bignumber(545140134));
+          X = math.multiply(X, bigNeg);
+          S = math.add(S, math.divide(math.multiply(M, L), X));
+        }
+        return math.divide(C, S);
+      };
 
-    const p = computePi(3);
-    const piStr = p.toFixed(50); // π as a 50-digit string.
-    const piDigits = piStr.split("").filter((ch) => ch !== ".");
+      const p = computePi(terms);
+      return p.toFixed(digits);
+    }
+
+    const piStr = getPiString(3, 50);
 
     // Map digits to frequencies (Hz) for the flute.
     const noteFrequencies = {
@@ -73,6 +71,8 @@
       8: 440.0, // A above middle C
       9: 493.88 // B above middle C
     };
+
+    const piDigits = piStr.split("").filter((ch) => ch !== ".");
 
     // Calculate each digit's duration:
     // Duration = max(0.3 + (digit - 3)*0.1, 0.2)
@@ -116,10 +116,12 @@
       oscillator: { type: "sine" },
       envelope: { attack: 0.01, decay: 0.2, sustain: 0.8, release: 0.5 }
     });
+
     const fluteReverb = new Tone.Reverb({
       decay: 1,
       preDelay: 0.4
     }).toDestination();
+    
     fluteSynth.connect(fluteReverb);
 
     // Create a more pleasant cello synth: triangle oscillator, gentle envelope, and low-pass filter.
@@ -148,7 +150,12 @@
     // Clear any previous scheduled events.
     Tone.Transport.cancel();
 
-    // Schedule flute events.
+    // Helper: Map a digit to a hue-rotate degree.
+    function getHue(digit) {
+      return (Number(digit) - 3) * 15;
+    }
+
+    // Schedule flute events and output the numbers
     events.forEach((ev, i) => {
       Tone.Transport.schedule((time) => {
         // Trigger the flute note on schedule
@@ -194,15 +201,17 @@
     const startAudio = async (e) => {
     // Prevent double triggering if both click and touchend fire.
       e.preventDefault();
-      await Tone.start();
-      document.getElementById("piDisplay").textContent = "";
-      Tone.Transport.position = "0:0:0";
-      Tone.Transport.start();
-      updateProgress();
+      Tone.start().then(() => {
+        document.getElementById("piDisplay").textContent = "";
+        Tone.Transport.position = "0:0:0";
+        Tone.Transport.start();
+        updateProgress();
+      });
     };
 
     document.getElementById("play").addEventListener("click", startAudio);
     document.getElementById("play").addEventListener("touchend", startAudio);
+    document.getElementById("play").addEventListener("touchstart", startAudio);
 
     const stopAudio = () => {
       Tone.Transport.stop();
@@ -213,6 +222,7 @@
 
     document.getElementById("stop").addEventListener("click", stopAudio);
     document.getElementById("stop").addEventListener("touchend", stopAudio);
+    document.getElementById("stop").addEventListener("touchstart", stopAudio);
 
   </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nes.css/2.3.0/css/nes.min.css">
